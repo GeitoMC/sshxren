@@ -1,0 +1,84 @@
+#!/bin/bash
+# Made by Joy | Fixed by ChatGPT
+
+echo "📦 Installing Pterodactyl Panel with Docker..."
+
+# Step 1: Create directory structure
+mkdir -p pterodactyl/panel
+cd pterodactyl/panel || exit 1
+
+# Step 2: Create docker-compose.yml file
+cat <<EOF > docker-compose.yml
+version: '3.8'
+
+services:
+  database:
+    image: mariadb:10.5
+    restart: always
+    command: --default-authentication-plugin=mysql_native_password
+    volumes:
+      - ./database:/var/lib/mysql
+    environment:
+      MYSQL_DATABASE: panel
+      MYSQL_USER: pterodactyl
+      MYSQL_PASSWORD: "CHANGE_ME"
+      MYSQL_ROOT_PASSWORD: "CHANGE_ME_TOO"
+
+  cache:
+    image: redis:alpine
+    restart: always
+
+  panel:
+    image: ghcr.io/pterodactyl/panel:latest
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    depends_on:
+      - database
+      - cache
+    volumes:
+      - ./var:/app/var
+      - ./nginx:/etc/nginx/http.d
+      - ./certs:/etc/letsencrypt
+      - ./logs:/app/storage/logs
+    environment:
+      APP_URL: "https://pterodactyl.example.com"
+      APP_TIMEZONE: "UTC"
+      APP_SERVICE_AUTHOR: "noreply@example.com"
+      TRUSTED_PROXIES: "*"
+      MAIL_FROM: "noreply@example.com"
+      MAIL_DRIVER: "smtp"
+      MAIL_HOST: "mail"
+      MAIL_PORT: "1025"
+      MAIL_USERNAME: ""
+      MAIL_PASSWORD: ""
+      MAIL_ENCRYPTION: "true"
+      DB_PASSWORD: "CHANGE_ME"
+      APP_ENV: "production"
+      APP_ENVIRONMENT_ONLY: "false"
+      CACHE_DRIVER: "redis"
+      SESSION_DRIVER: "redis"
+      QUEUE_DRIVER: "redis"
+      REDIS_HOST: "cache"
+      DB_HOST: "database"
+      DB_PORT: "3306"
+
+networks:
+  default:
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+EOF
+
+# Step 3: Start Docker containers
+echo "🚀 Starting containers..."
+docker-compose up -d
+
+# Step 4: Display success message
+echo ""
+echo "✅ Pterodactyl Panel installation complete!"
+echo "🌐 Access your panel at: http://localhost or http://your-server-ip"
+echo ""
+echo "👤 To create an admin user, run the following command:"
+echo "   docker-compose run --rm panel php artisan p:user:make"
